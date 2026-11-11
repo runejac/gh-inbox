@@ -28,6 +28,8 @@ Notes:
 - macOS 26 needs terminal-notifier 3.0 or later (`brew upgrade terminal-notifier`). Version 2.0.0 shows no alerts.
 - If the test alert does not show, allow alerts for terminal-notifier in System Settings > Notifications.
 - To update, run `git pull`. The LaunchAgent uses the new code at the next run.
+- If you move the folder, run `./install.sh` again. The LaunchAgent keeps the full path to the script.
+- CI failure alerts come only if GitHub sends you Actions notifications (GitHub Settings > Notifications > Actions).
 
 The first run only records the time. Alerts start after that.
 

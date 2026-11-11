@@ -347,8 +347,14 @@ class Inbox:
                      min(labels, key=LABELS.index), url, max(1, len(comments)))
 
 
+def notifier_arg(value: str) -> str:
+    # terminal-notifier reads each value as a property list, so a value that starts with
+    # "[", "(", "{", "<", "-" or a quote fails or becomes an option. A backslash prevents this.
+    return value if value[:1].isalnum() else f"\\{value}"
+
+
 def deliver(alerts: list[Alert], cfg: dict, dry_run: bool) -> bool:
-    """Return False if an alert failed, so that the caller keeps the old state and retries."""
+    """Return False if no alert was shown, so that the caller keeps the old state and retries."""
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     for a in alerts:
         print(f"{stamp} {a.title} | {a.subtitle} | {a.message} | {a.url}")
@@ -360,17 +366,22 @@ def deliver(alerts: list[Alert], cfg: dict, dry_run: bool) -> bool:
                                               "https://github.com/notifications")]
     if dry_run:
         return True
-    ok = True
+    failed = 0
     for a in alerts:
-        cmd = [NOTIFIER, "-title", a.title, "-subtitle", a.subtitle,
-               "-message", a.message.lstrip("-"), "-open", a.url, "-group", a.group]
+        cmd = [NOTIFIER, "-title", notifier_arg(a.title), "-subtitle", notifier_arg(a.subtitle),
+               "-message", notifier_arg(a.message), "-open", a.url, "-group", a.group]
         if cfg["sound"]:
             cmd += ["-sound", cfg["sound"]]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
-        if proc.returncode != 0:
-            ok = False
-            print(f"{stamp} terminal-notifier exit {proc.returncode}: {proc.stderr.strip()}", file=sys.stderr)
-    return ok
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
+            error = f"exit {proc.returncode}: {proc.stderr.strip()}" if proc.returncode else ""
+        except subprocess.TimeoutExpired:
+            error = "timeout"
+        if error:
+            failed += 1
+            print(f"{stamp} terminal-notifier {error} ({a.title})", file=sys.stderr)
+    # If only some alerts fail, the cause is their content. A retry would send the others again.
+    return failed < len(alerts) or not alerts
 
 
 def main() -> int:
@@ -383,7 +394,11 @@ def main() -> int:
     if not GH or not NOTIFIER:
         print("gh-inbox needs gh and terminal-notifier: brew install gh terminal-notifier", file=sys.stderr)
         return 1
-    cfg = {**DEFAULT_CONFIG, **load_json(CONFIG_FILE)}
+    try:
+        cfg = {**DEFAULT_CONFIG, **load_json(CONFIG_FILE)}
+    except (json.JSONDecodeError, TypeError):
+        print(f"{CONFIG_FILE} is not a valid JSON object. Correct it or delete it.", file=sys.stderr)
+        return 1
     if args.test:
         ok = deliver([Alert("", "gh-inbox:test", "gh-inbox", "Test alert", "Click to open GitHub notifications.",
                             "https://github.com/notifications")], cfg, dry_run=False)

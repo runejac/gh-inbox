@@ -10,15 +10,16 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_DIR="$HOME/.local/state/gh-inbox"
 DOMAIN="gui/$(id -u)"
 
-launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
-
 if [[ "${1:-}" == "--uninstall" ]]; then
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
   rm -f "$PLIST"
   echo "Removed $LABEL. State and logs stay in $STATE_DIR."
   exit 0
 fi
 
 INTERVAL="${1:-120}"
+[[ "$INTERVAL" =~ ^[0-9]+$ ]] && (( INTERVAL >= 60 )) || {
+  echo "Usage: ./install.sh [interval-seconds, 60 or more] | --uninstall" >&2; exit 1; }
 for bin in python3 gh terminal-notifier; do
   command -v "$bin" >/dev/null || { echo "Install $bin first (brew install $bin)." >&2; exit 1; }
 done
@@ -47,6 +48,7 @@ cat > "$PLIST" <<EOF
 </plist>
 EOF
 
+launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
 launchctl bootstrap "$DOMAIN" "$PLIST"
 echo "Installed $LABEL. It runs every ${INTERVAL}s."
 echo "Alert log: $STATE_DIR/gh-inbox.log"
