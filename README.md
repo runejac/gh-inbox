@@ -64,3 +64,7 @@ Optional. Put the keys that you want to change in `~/.config/gh-inbox/config.jso
 ```
 
 `done_drafts` marks each new unread notification from a draft PR as done on GitHub, so it leaves your inbox. The log shows each thread that it marks. Set `"sound": ""` for silent alerts. The script reads the config at each run, so you do not need to reinstall.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
